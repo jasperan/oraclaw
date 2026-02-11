@@ -1,15 +1,17 @@
-# 🦞 OpenClaw — Personal AI Assistant
+# OracLaw — Personal AI Assistant with Oracle AI Database Integration
 
 <p align="center">
     <picture>
         <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/openclaw/openclaw/main/docs/assets/openclaw-logo-text-dark.png">
-        <img src="https://raw.githubusercontent.com/openclaw/openclaw/main/docs/assets/openclaw-logo-text.png" alt="OpenClaw" width="500">
+        <img src="https://raw.githubusercontent.com/openclaw/openclaw/main/docs/assets/openclaw-logo-text.png" alt="OracLaw" width="500">
     </picture>
 </p>
 
 <p align="center">
-  <strong>EXFOLIATE! EXFOLIATE!</strong>
+  <strong>AI-powered memory with Oracle AI Vector Search</strong>
 </p>
+
+> **OracLaw** extends OpenClaw with Oracle Database AI Vector Search for persistent, semantic memory storage. Conversations, facts, and context are stored in Oracle Database with in-database ONNX embeddings, enabling hybrid vector + full-text recall across sessions.
 
 <p align="center">
   <a href="https://github.com/openclaw/openclaw/actions/workflows/ci.yml?branch=main"><img src="https://img.shields.io/github/actions/workflow/status/openclaw/openclaw/ci.yml?branch=main&style=for-the-badge" alt="CI status"></a>

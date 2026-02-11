@@ -1,12 +1,23 @@
 import type { SessionSendPolicyConfig } from "./types.base.js";
 
-export type MemoryBackend = "builtin" | "qmd";
+export type MemoryBackend = "builtin" | "qmd" | "oracle";
 export type MemoryCitationsMode = "auto" | "on" | "off";
+
+export type MemoryOracleConfig = {
+  serviceUrl?: string;
+  serviceToken?: string;
+  autoCapture?: boolean;
+  autoRecall?: boolean;
+  hybridSearch?: boolean;
+  maxResults?: number;
+  minScore?: number;
+};
 
 export type MemoryConfig = {
   backend?: MemoryBackend;
   citations?: MemoryCitationsMode;
   qmd?: MemoryQmdConfig;
+  oracle?: MemoryOracleConfig;
 };
 
 export type MemoryQmdConfig = {

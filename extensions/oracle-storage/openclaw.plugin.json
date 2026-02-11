@@ -1,0 +1,66 @@
+{
+  "id": "oracle-storage",
+  "kind": "memory",
+  "uiHints": {
+    "serviceUrl": {
+      "label": "Service URL",
+      "placeholder": "http://localhost:8100",
+      "help": "URL of the OracLaw Python sidecar service"
+    },
+    "serviceToken": {
+      "label": "Service Token",
+      "sensitive": true,
+      "placeholder": "bearer-token-...",
+      "help": "Bearer token for authenticating with the sidecar service"
+    },
+    "autoCapture": {
+      "label": "Auto-Capture",
+      "help": "Automatically capture important information from conversations"
+    },
+    "autoRecall": {
+      "label": "Auto-Recall",
+      "help": "Automatically inject relevant memories into context"
+    },
+    "hybridSearch": {
+      "label": "Hybrid Search",
+      "help": "Use hybrid keyword+vector search (vs pure vector)"
+    },
+    "maxResults": {
+      "label": "Max Results",
+      "placeholder": "6",
+      "advanced": true
+    },
+    "minScore": {
+      "label": "Min Score",
+      "placeholder": "0.3",
+      "advanced": true
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "serviceUrl": {
+        "type": "string"
+      },
+      "serviceToken": {
+        "type": "string"
+      },
+      "autoCapture": {
+        "type": "boolean"
+      },
+      "autoRecall": {
+        "type": "boolean"
+      },
+      "hybridSearch": {
+        "type": "boolean"
+      },
+      "maxResults": {
+        "type": "number"
+      },
+      "minScore": {
+        "type": "number"
+      }
+    }
+  }
+}

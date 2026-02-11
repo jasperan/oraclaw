@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Setup script for OracLaw database (Oracle FreePDB)
+# Usage: ./setup-db.sh [ORACLE_PASSWORD]
+
+set -euo pipefail
+
+ORACLE_PWD="${1:-${ORACLE_PASSWORD:-OracLaw2024}}"
+ORACLE_HOST="${ORACLE_HOST:-localhost}"
+ORACLE_PORT="${ORACLE_PORT:-1521}"
+ORACLE_SERVICE="${ORACLE_SERVICE:-FREEPDB1}"
+ORACLAW_USER="${ORACLE_USER:-oraclaw}"
+ORACLAW_PWD="${ORACLE_PASSWORD:-OracLaw2024}"
+
+echo "=== OracLaw Database Setup ==="
+echo "Connecting to ${ORACLE_HOST}:${ORACLE_PORT}/${ORACLE_SERVICE}"
+
+# Create the oraclaw user
+sqlplus -S "sys/${ORACLE_PWD}@//${ORACLE_HOST}:${ORACLE_PORT}/${ORACLE_SERVICE} as sysdba" <<EOF
+-- Create user
+CREATE USER ${ORACLAW_USER} IDENTIFIED BY "${ORACLAW_PWD}"
+    DEFAULT TABLESPACE USERS
+    TEMPORARY TABLESPACE TEMP
+    QUOTA UNLIMITED ON USERS;
+
+-- Grant privileges
+GRANT CREATE SESSION TO ${ORACLAW_USER};
+GRANT CREATE TABLE TO ${ORACLAW_USER};
+GRANT CREATE VIEW TO ${ORACLAW_USER};
+GRANT CREATE SEQUENCE TO ${ORACLAW_USER};
+GRANT CREATE PROCEDURE TO ${ORACLAW_USER};
+GRANT CREATE TRIGGER TO ${ORACLAW_USER};
+GRANT CREATE TYPE TO ${ORACLAW_USER};
+GRANT CREATE MINING MODEL TO ${ORACLAW_USER};
+GRANT EXECUTE ON DBMS_VECTOR TO ${ORACLAW_USER};
+GRANT EXECUTE ON DBMS_VECTOR_CHAIN TO ${ORACLAW_USER};
+GRANT CREATE ANY DIRECTORY TO ${ORACLAW_USER};
+
+-- Create directory for ONNX model files
+BEGIN
+    EXECUTE IMMEDIATE 'CREATE OR REPLACE DIRECTORY ORACLAW_ONNX_DIR AS ''/opt/oracle/oraclaw_onnx''';
+EXCEPTION
+    WHEN OTHERS THEN NULL;
+END;
+/
+
+-- Grant for ONNX model loading
+GRANT READ, WRITE ON DIRECTORY ORACLAW_ONNX_DIR TO ${ORACLAW_USER};
+
+EXIT;
+EOF
+
+echo "=== User ${ORACLAW_USER} created successfully ==="
+echo ""
+echo "Next steps:"
+echo "1. Start the oraclaw-service: cd oraclaw-service && uvicorn oraclaw_service.main:app --port 8100"
+echo "2. Initialize the schema: curl -X POST http://localhost:8100/api/init"

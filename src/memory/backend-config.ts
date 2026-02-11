@@ -247,6 +247,9 @@ export function resolveMemoryBackendConfig(params: {
 }): ResolvedMemoryBackendConfig {
   const backend = params.cfg.memory?.backend ?? DEFAULT_BACKEND;
   const citations = params.cfg.memory?.citations ?? DEFAULT_CITATIONS;
+  if (backend === "oracle") {
+    return { backend: "oracle", citations };
+  }
   if (backend !== "qmd") {
     return { backend: "builtin", citations };
   }
