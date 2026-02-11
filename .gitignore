@@ -76,11 +76,21 @@ IDENTITY.md
 USER.md
 .tgz
 
+# Editor / IDE
+.vscode/
+
 # local tooling
 .serena/
+.claude/
+
+# CI / GitHub (managed externally)
+.github/
+
+# Agent / AI editor configs
+.agent/
+.agents/
+.pi/
 
 # Agent credentials and memory (NEVER COMMIT)
 /memory/
-.agent/*.json
-!.agent/workflows/
 local/
