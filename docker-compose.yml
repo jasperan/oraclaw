@@ -1,10 +1,14 @@
 services:
+  # ─────────────────────────────────────────────────────────
+  # OpenClaw core (gateway + CLI)
+  # ─────────────────────────────────────────────────────────
   openclaw-gateway:
     image: ${OPENCLAW_IMAGE:-openclaw:local}
     environment:
       HOME: /home/node
       TERM: xterm-256color
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY}
       CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY}
       CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE}
@@ -33,6 +37,7 @@ services:
       HOME: /home/node
       TERM: xterm-256color
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       BROWSER: echo
       CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY}
       CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY}
@@ -45,9 +50,14 @@ services:
     init: true
     entrypoint: ["node", "dist/index.js"]
 
+  # ─────────────────────────────────────────────────────────
+  # Oracle FreePDB (local container – used with ORACLE_MODE=freepdb)
+  # Skip this service when using ADB cloud mode.
+  # ─────────────────────────────────────────────────────────
   oracle-freepdb:
     image: container-registry.oracle.com/database/free:latest
     container_name: oraclaw-oracle
+    profiles: ["freepdb", "default"]
     environment:
       - ORACLE_PWD=${ORACLE_PASSWORD:-OracLaw2024}
       - ORACLE_CHARACTERSET=AL32UTF8
@@ -70,11 +80,16 @@ services:
       start_period: 120s
     restart: unless-stopped
 
+  # ─────────────────────────────────────────────────────────
+  # OracLaw sidecar – FreePDB mode (local container)
+  # Usage: docker compose up oracle-freepdb oraclaw-service
+  # ─────────────────────────────────────────────────────────
   oraclaw-service:
     build:
       context: ./oraclaw-service
       dockerfile: Dockerfile
     container_name: oraclaw-service
+    profiles: ["freepdb", "default"]
     ports:
       - "${ORACLAW_SERVICE_PORT:-8100}:8100"
     environment:
@@ -90,6 +105,37 @@ services:
     depends_on:
       oracle-freepdb:
         condition: service_healthy
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────
+  # OracLaw sidecar – ADB cloud mode (wallet-less TLS)
+  # Usage: docker compose --profile adb up oraclaw-service-adb
+  #
+  # Set in .env (credentials from oracle-ai-developer-hub config.yaml):
+  #   ORACLE_USER=ADMIN
+  #   ORACLE_PASSWORD=Welcome12345*
+  #   ORACLE_DSN=(description= (retry_count=20)...)
+  # ─────────────────────────────────────────────────────────
+  oraclaw-service-adb:
+    build:
+      context: ./oraclaw-service
+      dockerfile: Dockerfile
+    container_name: oraclaw-service-adb
+    profiles: ["adb"]
+    ports:
+      - "${ORACLAW_SERVICE_PORT:-8100}:8100"
+    environment:
+      - ORACLE_MODE=adb
+      - ORACLE_USER=${ORACLE_USER:-ADMIN}
+      - ORACLE_PASSWORD=${ORACLE_PASSWORD}
+      - ORACLE_DSN=${ORACLE_DSN}
+      - ORACLE_WALLET_PATH=${ORACLE_WALLET_PATH:-}
+      - ORACLE_WALLET_PASSWORD=${ORACLE_WALLET_PASSWORD:-}
+      - ORACLE_POOL_MIN=${ORACLE_POOL_MIN:-2}
+      - ORACLE_POOL_MAX=${ORACLE_POOL_MAX:-10}
+      - ORACLAW_SERVICE_PORT=8100
+      - ORACLAW_SERVICE_TOKEN=${ORACLAW_SERVICE_TOKEN:-}
+      - AUTO_INIT=true
     restart: unless-stopped
 
 volumes:

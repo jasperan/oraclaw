@@ -6,6 +6,13 @@ from typing import Optional, Literal
 
 
 class OraclawSettings(BaseSettings):
+    """OracLaw service configuration.
+
+    Supports two Oracle Database modes:
+      freepdb – local Docker container (host:port/service)
+      adb     – Autonomous Database on OCI (full DSN descriptor, wallet-less or mTLS)
+    """
+
     oracle_mode: Literal["freepdb", "adb"] = "freepdb"
     oracle_user: str = "oraclaw"
     oracle_password: str = ""
@@ -31,7 +38,26 @@ class OraclawSettings(BaseSettings):
             raise ValueError(f"Invalid ONNX model name: {v!r} (alphanumeric and underscores only)")
         return v
 
+    @property
+    def is_adb(self) -> bool:
+        return self.oracle_mode == "adb"
+
+    @property
+    def uses_wallet(self) -> bool:
+        """True if ADB mode with a wallet path (mTLS)."""
+        return self.is_adb and bool(self.oracle_wallet_path)
+
+    @property
+    def uses_tls(self) -> bool:
+        """True if ADB mode with a long DSN descriptor (wallet-less TLS)."""
+        return self.is_adb and bool(self.oracle_dsn) and not self.uses_wallet
+
     def get_dsn(self) -> str:
-        if self.oracle_mode == "adb" and self.oracle_dsn:
+        """Return the DSN for oracledb connection.
+
+        ADB mode: full DSN descriptor (e.g. from oracle-ai-developer-hub config.yaml).
+        FreePDB mode: simple host:port/service format.
+        """
+        if self.is_adb and self.oracle_dsn:
             return self.oracle_dsn
         return f"{self.oracle_host}:{self.oracle_port}/{self.oracle_service}"

@@ -24,12 +24,20 @@ class EmbeddingService:
         self._sync_conn: oracledb.Connection | None = None
 
     def _create_sync_connection(self) -> oracledb.Connection:
-        """Create a synchronous connection for Oracle operations."""
-        return oracledb.connect(
-            user=self.settings.oracle_user,
-            password=self.settings.oracle_password,
-            dsn=self.settings.get_dsn(),
-        )
+        """Create a synchronous connection for Oracle operations.
+
+        Handles FreePDB, ADB wallet-less TLS, and ADB mTLS (wallet) modes.
+        """
+        params = {
+            "user": self.settings.oracle_user,
+            "password": self.settings.oracle_password,
+            "dsn": self.settings.get_dsn(),
+        }
+        if self.settings.uses_wallet:
+            params["config_dir"] = self.settings.oracle_wallet_path
+            if self.settings.oracle_wallet_password:
+                params["wallet_password"] = self.settings.oracle_wallet_password
+        return oracledb.connect(**params)
 
     async def initialize(self):
         """Initialize embeddings - try database mode first, fallback to Python."""
