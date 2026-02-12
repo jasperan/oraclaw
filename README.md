@@ -198,6 +198,129 @@ WhatsApp / Telegram / Slack / Discord / Google Chat / Signal / iMessage / BlueBu
                └─ iOS / Android nodes
 ```
 
+## Oracle AI Database — the memory layer
+
+Oracle Database is not a bolt-on; it is the persistence layer that holds the assistant together across sessions, channels, and devices. Every subsystem above — Gateway, agents, channels, apps — converges on Oracle for durable state.
+
+### Why Oracle, not "any vector DB"
+
+| Capability                                 | What it gives OracLaw                                                                                                                                                                   |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **In-database ONNX embeddings**            | `VECTOR_EMBEDDING()` runs the model _inside_ Oracle — zero data movement, no sidecar GPU, no external API call. The text goes in, the 384-dim vector comes back, in one SQL round-trip. |
+| **Native VECTOR type + IVF indexes**       | Vectors are first-class column types with `COSINE` distance indexes (`WITH TARGET ACCURACY 95`). No bolt-on extension, no separate index service.                                       |
+| **ACID for vectors + relational together** | A memory store, its embedding, its category, its access-count, and the session transcript that produced it are all committed atomically. Crash recovery is automatic.                   |
+| **Connection pooling + async**             | The Python sidecar uses `oracledb` async pools (2–10 connections), thin driver (pure Python, no OCI client install). Works identically on FreePDB local Docker and ADB cloud.           |
+| **Enterprise ops for free**                | HA/RAC, automatic backups, auditing, encryption-at-rest — inherited from Oracle Database, not reimplemented in application code.                                                        |
+
+### What Oracle stores
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Oracle AI Database                        │
+│                                                             │
+│  ORACLAW_MEMORIES    Long-term semantic memory (per-agent)  │
+│  ├─ text (CLOB) + embedding (VECTOR) + category + importance│
+│  └─ IVF_FLAT cosine index → sub-10ms recall                │
+│                                                             │
+│  ORACLAW_CHUNKS      Code/file fragments with vectors       │
+│  ├─ path, lines, hash, embedding (VECTOR)                   │
+│  └─ IVF_FLAT cosine index → code search                    │
+│                                                             │
+│  ORACLAW_SESSIONS    Persistent session state (per-agent)   │
+│  ORACLAW_TRANSCRIPTS Append-only conversation event log     │
+│  ORACLAW_FILES       File metadata + chunk tracking         │
+│  ORACLAW_EMBEDDING_CACHE  Embedding dedup cache             │
+│  ORACLAW_CONFIG      Application configuration              │
+│  ORACLAW_META        Schema version + migration state       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### How memory flows through Oracle
+
+**Auto-recall** (before every agent turn):
+
+```
+User message → Gateway fires before_agent_start hook
+  → oracle-storage plugin calls /api/memory/recall
+    → Sidecar generates embedding via VECTOR_EMBEDDING(ALL_MINILM_L12_V2 USING :text)
+    → SELECT ... ORDER BY VECTOR_DISTANCE(embedding, :query_vec, COSINE)
+    → Top-N memories injected as <relevant-memories> context block
+      → Agent responds with full conversation history
+```
+
+**Auto-capture** (after every agent turn):
+
+```
+Agent response → Gateway fires agent_end hook
+  → oracle-storage plugin extracts text, filters via regex triggers
+    → Detects category (preference / fact / decision / entity)
+    → Dedup check (0.95 similarity threshold)
+    → POST /api/memory/remember
+      → Sidecar embeds + INSERT INTO ORACLAW_MEMORIES
+        → Available for future recall across all channels and sessions
+```
+
+**Sessions + transcripts** persist to Oracle so the assistant resumes exactly where it left off — across device reboots, gateway restarts, and channel switches.
+
+### The sidecar architecture
+
+The TypeScript gateway does not talk to Oracle directly. A Python FastAPI sidecar (`oraclaw-service/`) owns the database connection:
+
+```
+Gateway (Node.js)                    OracLaw Sidecar (Python)              Oracle Database
+─────────────────                    ────────────────────────              ───────────────
+oracle-storage plugin                FastAPI + oracledb async pool        Tables + VECTOR indexes
+  OraclawClient ──HTTP──────────►    /api/memory/recall                   ORACLAW_MEMORIES
+  (retry 3x, 5s timeout)            /api/memory/remember                 ORACLAW_CHUNKS
+                                     /api/sessions/*                      ORACLAW_SESSIONS
+                                     /api/transcripts/*                   ORACLAW_TRANSCRIPTS
+                                     /api/health                          ORACLAW_META
+                                     /api/init (schema + ONNX)
+```
+
+This separation means: (a) the sidecar can run on a different host closer to the database, (b) Python's `oracledb` + `langchain-oracledb` ecosystem is used directly, and (c) the Gateway stays a pure Node.js process.
+
+### Embedding modes
+
+| Mode                | How                                                       | Latency | When used                             |
+| ------------------- | --------------------------------------------------------- | ------- | ------------------------------------- |
+| **Database**        | `VECTOR_EMBEDDING(ALL_MINILM_L12_V2 USING :text AS DATA)` | ~10ms   | ONNX model loaded in Oracle (default) |
+| **Python fallback** | `sentence-transformers` (all-MiniLM-L12-v2)               | ~50ms   | ONNX model not yet loaded             |
+
+Both produce identical 384-dimensional vectors. The sidecar auto-detects which mode to use on startup by querying `USER_MINING_MODELS`.
+
+### Deployment modes
+
+**Local development** (FreePDB Docker):
+
+```bash
+docker compose up oracle-freepdb oraclaw-service
+# Oracle Free on port 1521, sidecar on port 8100, AUTO_INIT=true
+```
+
+**Cloud production** (Oracle Autonomous Database):
+
+```bash
+# Set ORACLE_MODE=adb, ORACLE_DSN, ORACLE_USER, ORACLE_PASSWORD in .env
+docker compose --profile adb up oraclaw-service-adb
+```
+
+**Monitoring:**
+
+```bash
+python oraclaw-service/scripts/oracle_monitor.py --watch  # live dashboard
+openclaw oracle-memory stats                               # CLI summary
+```
+
+### Test coverage
+
+The Oracle integration is validated by **134 tests** across two languages:
+
+- **48 TypeScript tests** — plugin config parsing, auto-capture filtering, category detection, client retries, session/transcript providers
+- **86 Python tests** — health, auth, config, schema DDL, memory CRUD, edge cases, sessions, transcripts, vector utils, migrations
+
+All 134 pass. The broader suite (6,939 tests) also passes with Oracle storage active.
+
 ## Key subsystems
 
 - **[Gateway WebSocket network](https://docs.openclaw.ai/concepts/architecture)** — single WS control plane for clients, tools, and events (plus ops: [Gateway runbook](https://docs.openclaw.ai/gateway)).
