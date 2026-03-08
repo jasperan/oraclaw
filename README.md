@@ -1,4 +1,7 @@
-# 🦞 OpenClaw — Personal AI Assistant
+# OracLaw — Personal AI Assistant with Oracle AI Database Integration
+
+> **Fork of [OpenClaw](https://github.com/openclaw/openclaw)** with Oracle AI Database as the persistent memory layer.
+> All upstream OpenClaw features are preserved — OracLaw adds Oracle AI Vector Search for enterprise-grade memory persistence.
 
 <p align="center">
     <picture>
@@ -133,6 +136,52 @@ Run `openclaw doctor` to surface risky/misconfigured DM policies.
 - **[First-class tools](https://docs.openclaw.ai/tools)** — browser, canvas, nodes, cron, sessions, and Discord/Slack actions.
 - **[Companion apps](https://docs.openclaw.ai/platforms/macos)** — macOS menu bar app + iOS/Android [nodes](https://docs.openclaw.ai/nodes).
 - **[Onboarding](https://docs.openclaw.ai/start/wizard) + [skills](https://docs.openclaw.ai/tools/skills)** — wizard-driven setup with bundled/managed/workspace skills.
+
+## Oracle AI Database — the memory layer
+
+OracLaw replaces the default in-memory/SQLite storage with **Oracle AI Database**, giving your personal AI assistant enterprise-grade persistence and semantic search.
+
+### Why Oracle?
+
+| Feature          | Default (SQLite/in-memory) | Oracle AI Database                     |
+| ---------------- | -------------------------- | -------------------------------------- |
+| **Embeddings**   | External API call          | In-database ONNX (`ALL_MINILM_L12_V2`) |
+| **Vector index** | None                       | IVF with automatic rebalancing         |
+| **Transactions** | WAL-mode SQLite            | Full ACID with connection pooling      |
+| **Persistence**  | Local file, single device  | Cloud or container, multi-device       |
+| **Scalability**  | Single-user file           | Enterprise-grade concurrent access     |
+
+### What Oracle stores
+
+| Table                     | Purpose                                              |
+| ------------------------- | ---------------------------------------------------- |
+| `ORACLAW_MEMORIES`        | CLOB text + VECTOR embedding + category + importance |
+| `ORACLAW_CHUNKS`          | Code/file fragments (path, lines, hash, embedding)   |
+| `ORACLAW_SESSIONS`        | Persistent session state (per-agent)                 |
+| `ORACLAW_TRANSCRIPTS`     | Append-only conversation log                         |
+| `ORACLAW_FILES`           | File metadata + chunk refs                           |
+| `ORACLAW_EMBEDDING_CACHE` | Dedup cache for embeddings                           |
+| `ORACLAW_CONFIG`          | App configuration                                    |
+| `ORACLAW_META`            | Schema version + migration state                     |
+
+### Quick start (Oracle)
+
+```bash
+# FreePDB (local container)
+docker compose --profile freepdb up -d
+
+# ADB cloud mode
+cp .env.example .env  # fill in ORACLE_DSN, ORACLE_USER, ORACLE_PASSWORD
+docker compose --profile adb up -d oraclaw-service-adb
+```
+
+### OCI Generative AI
+
+OracLaw includes an OpenAI-compatible proxy for OCI GenAI (`oci-genai/`), allowing agents to use Oracle Cloud Infrastructure models (Llama, Code Llama, etc.) as LLM backends.
+
+See [extensions/oracle-storage/](extensions/oracle-storage/) for the plugin, [oraclaw-service/](oraclaw-service/) for the Python sidecar, and [oci-genai/](oci-genai/) for the OCI GenAI proxy.
+
+---
 
 ## Star History
 

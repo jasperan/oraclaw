@@ -439,6 +439,16 @@ importers:
 
   extensions/open-prose: {}
 
+  extensions/oracle-storage:
+    dependencies:
+      '@sinclair/typebox':
+        specifier: 0.34.48
+        version: 0.34.48
+    devDependencies:
+      openclaw:
+        specifier: workspace:*
+        version: link:../..
+
   extensions/signal: {}
 
   extensions/slack: {}

@@ -74,3 +74,89 @@ services:
     entrypoint: ["node", "dist/index.js"]
     depends_on:
       - openclaw-gateway
+
+  # ─────────────────────────────────────────────────────────
+  # Oracle FreePDB (local container – used with ORACLE_MODE=freepdb)
+  # Skip this service when using ADB cloud mode.
+  # ─────────────────────────────────────────────────────────
+  oracle-freepdb:
+    image: container-registry.oracle.com/database/free:latest
+    container_name: oraclaw-oracle
+    profiles: ["freepdb"]
+    environment:
+      - ORACLE_PWD=${ORACLE_PASSWORD:-OracLaw2024}
+      - ORACLE_CHARACTERSET=AL32UTF8
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "sqlplus",
+          "-L",
+          "sys/${ORACLE_PASSWORD:-OracLaw2024}@//localhost:1521/FREEPDB1 as sysdba",
+          "@/dev/null",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────
+  # OracLaw sidecar – FreePDB mode (local container)
+  # Usage: docker compose --profile freepdb up oracle-freepdb oraclaw-service
+  # ─────────────────────────────────────────────────────────
+  oraclaw-service:
+    build:
+      context: ./oraclaw-service
+      dockerfile: Dockerfile
+    container_name: oraclaw-service
+    profiles: ["freepdb"]
+    ports:
+      - "${ORACLAW_SERVICE_PORT:-8100}:8100"
+    environment:
+      - ORACLE_MODE=freepdb
+      - ORACLE_USER=${ORACLE_USER:-oraclaw}
+      - ORACLE_PASSWORD=${ORACLE_PASSWORD:-OracLaw2024}
+      - ORACLE_HOST=oracle-freepdb
+      - ORACLE_PORT=1521
+      - ORACLE_SERVICE=FREEPDB1
+      - ORACLAW_SERVICE_PORT=8100
+      - ORACLAW_SERVICE_TOKEN=${ORACLAW_SERVICE_TOKEN:-}
+      - AUTO_INIT=true
+    depends_on:
+      oracle-freepdb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────
+  # OracLaw sidecar – ADB cloud mode (wallet-less TLS)
+  # Usage: docker compose --profile adb up oraclaw-service-adb
+  # ─────────────────────────────────────────────────────────
+  oraclaw-service-adb:
+    build:
+      context: ./oraclaw-service
+      dockerfile: Dockerfile
+    container_name: oraclaw-service-adb
+    profiles: ["adb"]
+    ports:
+      - "${ORACLAW_SERVICE_PORT:-8100}:8100"
+    environment:
+      - ORACLE_MODE=adb
+      - ORACLE_USER=${ORACLE_USER:-ADMIN}
+      - ORACLE_PASSWORD=${ORACLE_PASSWORD}
+      - ORACLE_DSN=${ORACLE_DSN}
+      - ORACLE_WALLET_PATH=${ORACLE_WALLET_PATH:-}
+      - ORACLE_WALLET_PASSWORD=${ORACLE_WALLET_PASSWORD:-}
+      - ORACLE_POOL_MIN=${ORACLE_POOL_MIN:-2}
+      - ORACLE_POOL_MAX=${ORACLE_POOL_MAX:-10}
+      - ORACLAW_SERVICE_PORT=8100
+      - ORACLAW_SERVICE_TOKEN=${ORACLAW_SERVICE_TOKEN:-}
+      - AUTO_INIT=true
+    restart: unless-stopped
+
+volumes:
+  oracle-data:

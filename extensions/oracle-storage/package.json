@@ -1,0 +1,18 @@
+{
+  "name": "@openclaw/oracle-storage",
+  "version": "2026.2.9",
+  "private": true,
+  "description": "Oracle AI Vector Search memory plugin with in-database ONNX embeddings",
+  "type": "module",
+  "dependencies": {
+    "@sinclair/typebox": "0.34.48"
+  },
+  "devDependencies": {
+    "openclaw": "workspace:*"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}
