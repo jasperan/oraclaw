@@ -1,9 +1,9 @@
-import hashlib
-import json
 import logging
 import os
 import sqlite3
 from pathlib import Path
+
+from ..services.memory_service import _to_vector
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +185,7 @@ class SqliteToOracleMigrator:
                             """,
                             {
                                 **data,
-                                "embedding": str(embedding),
+                                "embedding": _to_vector(embedding),
                             },
                         )
                         self._status["chunks_migrated"] += 1
@@ -214,14 +214,11 @@ class SqliteToOracleMigrator:
                     model = row["model"] if "model" in row.keys() else ""
                     embedding_raw = row["embedding"] if "embedding" in row.keys() else None
 
-                    # Parse embedding if stored as JSON string
+                    # Normalize the cached embedding to a string payload.
                     embedding_str = None
                     if embedding_raw:
                         if isinstance(embedding_raw, str):
-                            try:
-                                embedding_str = embedding_raw
-                            except Exception:
-                                embedding_str = None
+                            embedding_str = embedding_raw
                         elif isinstance(embedding_raw, bytes):
                             embedding_str = embedding_raw.decode("utf-8", errors="replace")
 

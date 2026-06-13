@@ -35,7 +35,6 @@ export type MemorySearchResult = {
   score: number;
   snippet: string;
   source: string;
-  citation?: string;
 };
 
 export type StoreChunkParams = {

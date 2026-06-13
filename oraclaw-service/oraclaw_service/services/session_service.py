@@ -1,23 +1,9 @@
 import json
 import logging
 
-import oracledb
+from ..db.lob import read_json_lob
 
 logger = logging.getLogger(__name__)
-
-
-async def _read_lob(val):
-    """Read a LOB value to string, or return as-is if already a string."""
-    if val is None:
-        return None
-    if isinstance(val, (oracledb.AsyncLOB,)):
-        return await val.read()
-    if hasattr(val, 'read') and not isinstance(val, str):
-        result = val.read()
-        if hasattr(result, '__await__'):
-            return await result
-        return result
-    return val
 
 
 class SessionService:
@@ -175,16 +161,7 @@ class SessionService:
 
 async def _row_to_session(row) -> dict:
     """Convert a database row to a session dict."""
-    session_data_raw = await _read_lob(row[4])
-    if isinstance(session_data_raw, str):
-        try:
-            session_data = json.loads(session_data_raw)
-        except (json.JSONDecodeError, TypeError):
-            session_data = {}
-    elif session_data_raw is None:
-        session_data = {}
-    else:
-        session_data = session_data_raw
+    session_data = await read_json_lob(row[4])
 
     return {
         "session_key": row[0],

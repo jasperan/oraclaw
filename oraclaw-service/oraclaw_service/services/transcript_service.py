@@ -2,23 +2,9 @@ import json
 import logging
 import uuid
 
-import oracledb
+from ..db.lob import read_json_lob
 
 logger = logging.getLogger(__name__)
-
-
-async def _read_lob(val):
-    """Read a LOB value to string, or return as-is if already a string."""
-    if val is None:
-        return None
-    if isinstance(val, (oracledb.AsyncLOB,)):
-        return await val.read()
-    if hasattr(val, 'read') and not isinstance(val, str):
-        result = val.read()
-        if hasattr(result, '__await__'):
-            return await result
-        return result
-    return val
 
 
 class TranscriptService:
@@ -119,16 +105,7 @@ class TranscriptService:
 
 async def _row_to_event(row) -> dict:
     """Convert a database row to an event dict."""
-    event_data_raw = await _read_lob(row[5])
-    if isinstance(event_data_raw, str):
-        try:
-            event_data = json.loads(event_data_raw)
-        except (json.JSONDecodeError, TypeError):
-            event_data = {}
-    elif event_data_raw is None:
-        event_data = {}
-    else:
-        event_data = event_data_raw
+    event_data = await read_json_lob(row[5])
 
     return {
         "id": row[0],

@@ -1,10 +1,8 @@
 import array
-import json
 import logging
 import uuid
-from datetime import datetime, timezone
 
-import oracledb
+from ..db.lob import read_lob as _read_lob
 
 logger = logging.getLogger(__name__)
 
@@ -12,20 +10,6 @@ logger = logging.getLogger(__name__)
 def _to_vector(embedding: list[float]) -> array.array:
     """Convert a Python list of floats to an array.array for Oracle VECTOR binding."""
     return array.array('f', embedding)
-
-
-async def _read_lob(val):
-    """Read a LOB value to string, or return as-is if already a string."""
-    if val is None:
-        return None
-    if isinstance(val, (oracledb.AsyncLOB,)):
-        return await val.read()
-    if hasattr(val, 'read'):
-        result = val.read()
-        if hasattr(result, '__await__'):
-            return await result
-        return result
-    return val
 
 
 class MemoryService:
