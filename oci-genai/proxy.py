@@ -28,6 +28,12 @@ from socketserver import ThreadingMixIn
 from oci_client import create_oci_client
 
 PROXY_PORT = int(os.getenv("OCI_PROXY_PORT", "9999"))
+# Loopback by default: this proxy spends the OCI credentials from ~/.oci/config and performs no
+# authentication of its own, so it must not be reachable from the network unless explicitly asked.
+PROXY_HOST = os.getenv("OCI_PROXY_HOST", "127.0.0.1")
+# Cross-origin access is opt-in. Unset means no Access-Control-Allow-Origin is sent, so a web page
+# the user visits cannot read model responses from this proxy.
+PROXY_ALLOW_ORIGIN = os.getenv("OCI_PROXY_ALLOW_ORIGIN", "")
 
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
@@ -41,7 +47,9 @@ class OCIProxyHandler(BaseHTTPRequestHandler):
 
     # ── CORS ────────────────────────────────────────────────────
     def _cors_headers(self):
-        self.send_header("Access-Control-Allow-Origin", "*")
+        if not PROXY_ALLOW_ORIGIN:
+            return
+        self.send_header("Access-Control-Allow-Origin", PROXY_ALLOW_ORIGIN)
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header(
             "Access-Control-Allow-Headers", "Content-Type, Authorization"
@@ -126,7 +134,7 @@ def main():
     client = create_oci_client()
     OCIProxyHandler.client = client
 
-    server = ThreadedHTTPServer(("0.0.0.0", PROXY_PORT), OCIProxyHandler)
+    server = ThreadedHTTPServer((PROXY_HOST, PROXY_PORT), OCIProxyHandler)
     print(f"OCI GenAI proxy listening on http://localhost:{PROXY_PORT}/v1")
     print(f"  Region:      {os.getenv('OCI_REGION', 'us-chicago-1')}")
     print(f"  Profile:     {os.getenv('OCI_PROFILE', 'DEFAULT')}")
