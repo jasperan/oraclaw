@@ -1,5 +1,6 @@
 import logging
 import os
+import secrets
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -114,7 +115,7 @@ class BearerTokenMiddleware(BaseHTTPMiddleware):
         token = request.app.state.settings.oraclaw_service_token
         if token:
             auth = request.headers.get("authorization", "")
-            if not auth.startswith("Bearer ") or auth[7:] != token:
+            if not auth.startswith("Bearer ") or not secrets.compare_digest(auth[7:], token):
                 return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
         return await call_next(request)
 
