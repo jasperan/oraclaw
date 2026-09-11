@@ -38,7 +38,9 @@ RUN mkdir -p /out && \
 FROM ${OPENCLAW_NODE_BOOKWORM_IMAGE} AS build
 
 # Install Bun (required for build scripts)
-RUN curl -fsSL https://bun.sh/install | bash
+# Hardened rather than pinned: --proto/--tlsv1.2 refuse a redirect to plain HTTP or another scheme.
+# Full pinning needs the installer's hash, which requires fetching it (out of scope offline).
+RUN curl -fsSL --proto '=https' --tlsv1.2 https://bun.sh/install | bash
 ENV PATH="/root/.bun/bin:${PATH}"
 
 RUN corepack enable
