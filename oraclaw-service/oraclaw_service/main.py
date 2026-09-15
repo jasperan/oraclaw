@@ -1,4 +1,6 @@
 import logging
+import os
+import secrets
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -85,7 +87,16 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    # Explicit localhost allowlist rather than a wildcard: this sidecar has no authentication unless
+    # ORACLAW_SERVICE_TOKEN is set, so a wildcard would let any website the user visits read its
+    # responses. Add other UI origins via ORACLAW_CORS_ORIGINS if needed.
+    allow_origins=[
+        origin.strip()
+        for origin in os.getenv(
+            "ORACLAW_CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
+        ).split(",")
+        if origin.strip()
+    ],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -104,7 +115,7 @@ class BearerTokenMiddleware(BaseHTTPMiddleware):
         token = request.app.state.settings.oraclaw_service_token
         if token:
             auth = request.headers.get("authorization", "")
-            if not auth.startswith("Bearer ") or auth[7:] != token:
+            if not auth.startswith("Bearer ") or not secrets.compare_digest(auth[7:], token):
                 return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
         return await call_next(request)
 
@@ -120,7 +131,9 @@ if __name__ == "__main__":
     settings = OraclawSettings()
     uvicorn.run(
         "oraclaw_service.main:app",
-        host="0.0.0.0",
+        # Loopback by default: this sidecar's bearer check is skipped unless ORACLAW_SERVICE_TOKEN is
+        # set (see BearerTokenMiddleware), so binding every interface would publish it unprotected.
+        host=os.getenv("ORACLAW_SERVICE_HOST", "127.0.0.1"),
         port=settings.oraclaw_service_port,
         reload=True,
     )
