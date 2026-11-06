@@ -87,7 +87,7 @@ services:
       - ORACLE_PWD=${ORACLE_PASSWORD:-OracLaw2024}
       - ORACLE_CHARACTERSET=AL32UTF8
     ports:
-      - "1521:1521"
+      - "127.0.0.1:1521:1521"
     volumes:
       - oracle-data:/opt/oracle/oradata
     healthcheck:
@@ -116,7 +116,7 @@ services:
     container_name: oraclaw-service
     profiles: ["freepdb"]
     ports:
-      - "${ORACLAW_SERVICE_PORT:-8100}:8100"
+      - "${ORACLAW_SERVICE_BIND:-127.0.0.1}:${ORACLAW_SERVICE_PORT:-8100}:8100"
     environment:
       - ORACLE_MODE=freepdb
       - ORACLE_USER=${ORACLE_USER:-oraclaw}
@@ -143,7 +143,7 @@ services:
     container_name: oraclaw-service-adb
     profiles: ["adb"]
     ports:
-      - "${ORACLAW_SERVICE_PORT:-8100}:8100"
+      - "${ORACLAW_SERVICE_BIND:-127.0.0.1}:${ORACLAW_SERVICE_PORT:-8100}:8100"
     environment:
       - ORACLE_MODE=adb
       - ORACLE_USER=${ORACLE_USER:-ADMIN}

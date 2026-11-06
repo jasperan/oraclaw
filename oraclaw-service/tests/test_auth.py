@@ -73,8 +73,8 @@ async def test_request_with_correct_token_is_allowed(client_with_token):
     assert resp.status_code == 200
 
 
-async def test_no_token_config_allows_all(client_no_db):
-    """When no token is configured, all requests are allowed."""
+async def test_no_token_config_allows_loopback(client_no_db):
+    """When no token is configured, loopback requests are allowed."""
     resp = await client_no_db.get("/api/health")
     assert resp.status_code == 200
 
@@ -95,3 +95,20 @@ def test_onnx_model_validation_rejects_special_chars():
     """Model names with special characters are rejected."""
     with pytest.raises(Exception):
         _make_settings(oracle_onnx_model="model'name")
+
+
+async def test_no_token_rejects_non_loopback_client(client_no_db):
+    """With no token configured, a non-loopback peer must not be served."""
+    from oraclaw_service.main import app
+
+    transport = ASGITransport(app=app, client=("203.0.113.7", 4444))
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        resp = await c.get("/api/health")
+    assert resp.status_code == 401
+
+
+async def test_token_allows_non_loopback_client(app_with_token):
+    transport = ASGITransport(app=app_with_token, client=("203.0.113.7", 4444))
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        resp = await c.get("/api/health", headers={"Authorization": "Bearer test-secret-token"})
+    assert resp.status_code == 200

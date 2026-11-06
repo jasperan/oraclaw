@@ -103,12 +103,15 @@ app.add_middleware(
 )
 
 
-class BearerTokenMiddleware(BaseHTTPMiddleware):
-    """Optional bearer token authentication.
+_LOOPBACK_CLIENTS = frozenset({"127.0.0.1", "::1"})
 
-    When ORACLAW_SERVICE_TOKEN is set, all requests must include
-    a matching Authorization: Bearer <token> header.
-    When not set, all requests are allowed (local dev mode).
+
+class BearerTokenMiddleware(BaseHTTPMiddleware):
+    """Bearer token authentication, fail-closed without a token.
+
+    When ORACLAW_SERVICE_TOKEN is set, all requests must include a matching
+    Authorization: Bearer <token> header. When it is not set, only loopback
+    clients are served (local dev mode); any other peer gets 401.
     """
 
     async def dispatch(self, request: Request, call_next):
@@ -117,6 +120,13 @@ class BearerTokenMiddleware(BaseHTTPMiddleware):
             auth = request.headers.get("authorization", "")
             if not auth.startswith("Bearer ") or not secrets.compare_digest(auth[7:], token):
                 return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+        else:
+            client = request.client.host if request.client else None
+            if client not in _LOOPBACK_CLIENTS:
+                return JSONResponse(
+                    status_code=401,
+                    content={"detail": "Unauthorized: set ORACLAW_SERVICE_TOKEN to serve non-loopback clients"},
+                )
         return await call_next(request)
 
 
